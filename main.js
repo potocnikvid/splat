@@ -736,24 +736,57 @@ let defaultViewMatrix = [
     0.03, 6.55, 1,
 ];
 let viewMatrix = defaultViewMatrix;
+
+let splatFile = "train.splat";
+
+// Function to fetch splat files from HuggingFace repository
+async function fetchFromHuggingFace(filename) {
+    // Construct full URL to the file on HuggingFace
+    const url = new URL(
+        filename,
+        "https://huggingface.co/cakewalk/splat-data/resolve/main/"
+    );
+    // Fetch with CORS enabled and credentials omitted
+    const req = await fetch(url, {
+        mode: "cors",
+        credentials: "omit"
+    });
+    console.log("Fetching from HuggingFace:", url);
+    return req;
+}
+
+// Function to fetch splat files from local data directory
+async function fetchFromLocal(filename) {
+    // Fetch from ./data directory with appropriate content type
+    const req = await fetch(`./data/${filename}`, {
+        headers: {
+            'Content-Type': 'application/octet-stream'
+        }
+    });
+    console.log("Fetching from local:", filename);
+    return req;
+}
+
 async function main() {
-    let carousel = true;
+    let carousel = true; // Controls auto-rotation of view
+    // Get URL parameters (e.g. ?local&url=example.splat)
     const params = new URLSearchParams(location.search);
+    console.log(params);
+
     try {
+        // Try to load view matrix from URL hash
         viewMatrix = JSON.parse(decodeURIComponent(location.hash.slice(1)));
         carousel = false;
     } catch (err) {}
-    const url = new URL(
-        // "nike.splat",
-        // location.href,
-        params.get("url") || "train.splat",
-        "https://huggingface.co/cakewalk/splat-data/resolve/main/",
-    );
-    const req = await fetch(url, {
-        mode: "cors", // no-cors, *cors, same-origin
-        credentials: "omit", // include, *same-origin, omit
-    });
-    console.log(req);
+
+    // Get filename from URL params or use default
+    const filename = params.get("url") || "train.splat";
+    // Check if local mode is enabled via ?local in URL
+    const useLocal = params.get("local") !== null;
+    
+    // Fetch using appropriate method based on useLocal flag
+    const req = await (useLocal ? fetchFromLocal(filename) : fetchFromHuggingFace(filename));
+    
     if (req.status != 200)
         throw new Error(req.status + " Unable to load " + req.url);
 
